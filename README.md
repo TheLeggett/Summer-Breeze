@@ -5,6 +5,8 @@
 
 A user-friendly CLI tool for managing ROMs on your SummerCart64 flash cart.
 
+![Summer Breeze CLI](screenshot.png)
+
 ## Requirements
 
 - Python 3.10+
