@@ -1,0 +1,9 @@
+# Menu background music MP3 files
+menu_music/
+
+sc64deployer.exe
+sc64menu.n64
+sc64-firmware-backup.bin
+nul
+
+.claude/
