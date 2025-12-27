@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-SC64 Manager - A friendly CLI tool for managing SummerCart64 ROMs
+Summer Breeze - A friendly CLI tool for managing SummerCart64
 """
 
-import os
+import platform
 import subprocess
 import sys
 from datetime import datetime
@@ -11,7 +11,12 @@ from pathlib import Path
 
 # Configuration
 SCRIPT_DIR = Path(__file__).parent.resolve()
-SC64_DEPLOYER = SCRIPT_DIR / "sc64deployer.exe"
+
+# Use platform-appropriate binary
+if platform.system() == "Windows":
+    SC64_DEPLOYER = SCRIPT_DIR / "sc64deployer.exe"
+else:
+    SC64_DEPLOYER = SCRIPT_DIR / "sc64deployer"
 LOCAL_ROMS_DIR = SCRIPT_DIR / "roms"
 MENU_VERSIONS_DIR = SCRIPT_DIR / "menu_versions"
 MENU_MUSIC_DIR = SCRIPT_DIR / "menu_music"
@@ -21,7 +26,7 @@ SD_MENU_PATH = "/sc64menu.n64"
 SD_MENU_MUSIC_PATH = "/menu/bg.mp3"
 
 # ROM file extensions
-ROM_EXTENSIONS = {'.z64', '.n64', '.v64'}
+ROM_EXTENSIONS = {".z64", ".n64", ".v64"}
 
 
 def run_sc64_command(args: list[str], capture_output=True) -> tuple[int, str, str]:
@@ -31,7 +36,7 @@ def run_sc64_command(args: list[str], capture_output=True) -> tuple[int, str, st
         result = subprocess.run(cmd, capture_output=capture_output, text=True, cwd=str(SCRIPT_DIR))
         return result.returncode, result.stdout, result.stderr
     except FileNotFoundError:
-        return -1, "", f"Error: sc64deployer.exe not found at {SC64_DEPLOYER}"
+        return -1, "", f"Error: sc64deployer not found at {SC64_DEPLOYER}"
 
 
 def check_device_connected() -> bool:
@@ -44,7 +49,7 @@ def is_sd_card_accessible() -> bool:
     """Check if SD card is actually accessible by trying to list files."""
     code, stdout, stderr = run_sc64_command(["sd", "ls"])
     # If we get any output with the pipe separator, the SD card is working
-    return code == 0 and '|' in stdout
+    return code == 0 and "|" in stdout
 
 
 def list_sd_card_files(path: str = None) -> list[dict]:
@@ -59,14 +64,14 @@ def list_sd_card_files(path: str = None) -> list[dict]:
         return []
 
     files = []
-    for line in stdout.strip().split('\n'):
+    for line in stdout.strip().split("\n"):
         if not line.strip():
             continue
         # Parse format: "d ---- 2024-06-01 12:00:00 | /menu" or "f  32M 2025-12-01 19:03:12 | file.z64"
-        if '|' not in line:
+        if "|" not in line:
             continue
 
-        parts = line.split('|', 1)
+        parts = line.split("|", 1)
         if len(parts) != 2:
             continue
 
@@ -74,7 +79,7 @@ def list_sd_card_files(path: str = None) -> list[dict]:
         name = parts[1].strip()
 
         # First char is d (dir) or f (file)
-        file_type = 'dir' if meta.startswith('d') else 'file'
+        file_type = "dir" if meta.startswith("d") else "file"
 
         # Extract size if present (for files)
         size_str = ""
@@ -82,12 +87,9 @@ def list_sd_card_files(path: str = None) -> list[dict]:
         if len(meta_parts) >= 2:
             size_str = meta_parts[1]
 
-        files.append({
-            'name': name,
-            'type': file_type,
-            'size': size_str,
-            'path': name if name.startswith('/') else f"/{name}"
-        })
+        files.append(
+            {"name": name, "type": file_type, "size": size_str, "path": name if name.startswith("/") else f"/{name}"}
+        )
     return files
 
 
@@ -98,12 +100,12 @@ def get_all_sd_roms(path: str = None, found: list = None) -> list[str]:
 
     files = list_sd_card_files(path)
     for f in files:
-        if f['type'] == 'dir':
+        if f["type"] == "dir":
             # Recurse into subdirectory
-            get_all_sd_roms(f['path'], found)
+            get_all_sd_roms(f["path"], found)
         else:
             # Check if it's a ROM file
-            name_lower = f['name'].lower()
+            name_lower = f["name"].lower()
             if any(name_lower.endswith(ext) for ext in ROM_EXTENSIONS):
                 found.append(f)
     return found
@@ -115,7 +117,7 @@ def list_local_roms() -> list[Path]:
         return []
 
     roms = []
-    for file in LOCAL_ROMS_DIR.rglob('*'):
+    for file in LOCAL_ROMS_DIR.rglob("*"):
         if file.is_file() and file.suffix.lower() in ROM_EXTENSIONS:
             roms.append(file)
     return sorted(roms, key=lambda x: x.name.lower())
@@ -126,7 +128,7 @@ def normalize_rom_name(name: str) -> str:
     # Remove extension and convert to lowercase for comparison
     for ext in ROM_EXTENSIONS:
         if name.lower().endswith(ext):
-            name = name[:-len(ext)]
+            name = name[: -len(ext)]
             break
     return name.lower().strip()
 
@@ -168,7 +170,7 @@ def get_choice(max_val: int, prompt: str = "Enter choice") -> int:
     while True:
         try:
             choice = input(f"{prompt} (1-{max_val}, or 0 to cancel): ").strip()
-            if choice == '0':
+            if choice == "0":
                 return 0
             val = int(choice)
             if 1 <= val <= max_val:
@@ -186,13 +188,13 @@ def get_multi_choice(max_val: int, prompt: str = "Enter choices") -> list[int]:
     while True:
         try:
             raw = input(f"{prompt} (e.g. 1,3,5 or 'all', or 0 to cancel): ").strip().lower()
-            if raw == '0':
+            if raw == "0":
                 return []
-            if raw == 'all':
+            if raw == "all":
                 return list(range(1, max_val + 1))
 
             choices = []
-            for part in raw.split(','):
+            for part in raw.split(","):
                 val = int(part.strip())
                 if 1 <= val <= max_val:
                     choices.append(val)
@@ -220,8 +222,8 @@ def cmd_status():
     code, stdout, stderr = run_sc64_command(["info"])
     if code == 0:
         # Extract key info
-        for line in stdout.split('\n'):
-            if any(k in line for k in ['Firmware version', 'Boot mode']):
+        for line in stdout.split("\n"):
+            if any(k in line for k in ["Firmware version", "Boot mode"]):
                 print(f"  {line.strip()}")
 
     # Check actual SD card accessibility
@@ -273,16 +275,16 @@ def cmd_list_cart():
     dirs = []
 
     for f in files:
-        if f['type'] == 'dir':
+        if f["type"] == "dir":
             dirs.append(f)
             icon = "[DIR]"
         else:
-            is_rom = any(f['name'].lower().endswith(e) for e in ROM_EXTENSIONS)
+            is_rom = any(f["name"].lower().endswith(e) for e in ROM_EXTENSIONS)
             if is_rom:
                 roms_in_root.append(f)
             icon = "[ROM]" if is_rom else "[   ]"
 
-        size_info = f" ({f['size']})" if f.get('size') and f['size'] != '----' else ""
+        size_info = f" ({f['size']})" if f.get("size") and f["size"] != "----" else ""
         print(f"  {icon} {f['name']}{size_info}")
 
     # Show ROMs in subdirectories
@@ -293,7 +295,7 @@ def cmd_list_cart():
         print("  No ROM files found on SD card.")
     else:
         for i, rom in enumerate(all_roms, 1):
-            size_info = f" ({rom['size']})" if rom.get('size') and rom['size'] != '----' else ""
+            size_info = f" ({rom['size']})" if rom.get("size") and rom["size"] != "----" else ""
             print(f"  [{i:2}] {rom['name']}{size_info}")
         print(f"\nTotal: {len(all_roms)} ROM(s)")
 
@@ -321,7 +323,7 @@ def cmd_compare():
     # Get all ROMs from SD card
     print("Scanning SD card...")
     sd_roms = get_all_sd_roms()
-    sd_rom_names = {normalize_rom_name(r['name']) for r in sd_roms}
+    sd_rom_names = {normalize_rom_name(r["name"]) for r in sd_roms}
 
     print(f"Found {len(sd_roms)} ROM(s) on cart")
 
@@ -391,8 +393,8 @@ def cmd_upload():
     dest_path = "/"
     if dest_choice == 2:
         dest_path = input("Enter SD card path (e.g. /roms): ").strip()
-        if not dest_path.startswith('/'):
-            dest_path = '/' + dest_path
+        if not dest_path.startswith("/"):
+            dest_path = "/" + dest_path
 
     # Upload selected ROMs
     print()
@@ -465,7 +467,7 @@ def backup_menu_from_cart() -> bool:
     backup_name = f"sc64menu_backup_{timestamp}.n64"
     backup_path = MENU_VERSIONS_DIR / backup_name
 
-    print(f"Backing up current menu from cart...")
+    print("Backing up current menu from cart...")
     print(f"  From: {SD_MENU_PATH}")
     print(f"    To: {backup_path}")
 
@@ -480,7 +482,7 @@ def backup_menu_from_cart() -> bool:
 
 def upload_menu_to_cart(local_path: Path) -> bool:
     """Upload a menu file to the cart, replacing the existing one."""
-    print(f"Uploading new menu to cart...")
+    print("Uploading new menu to cart...")
     print(f"  From: {local_path.name}")
     print(f"    To: {SD_MENU_PATH}")
 
@@ -510,7 +512,7 @@ def cmd_update_menu():
     menu_versions = list_local_menu_versions()
     if not menu_versions:
         print(f"No menu files found in: {MENU_VERSIONS_DIR}")
-        print(f"\nAdd .z64, .n64, or .v64 menu files to this directory.")
+        print("\nAdd .z64, .n64, or .v64 menu files to this directory.")
         return
 
     # Paginate menu versions (9 per page)
@@ -548,12 +550,12 @@ def cmd_update_menu():
             print("Update cancelled.")
             return
 
-        if user_input == '0':
+        if user_input == "0":
             print("Update cancelled.")
             return
-        elif user_input == 'p' and current_page > 0:
+        elif user_input == "p" and current_page > 0:
             current_page -= 1
-        elif user_input == 'n' and current_page < total_pages - 1:
+        elif user_input == "n" and current_page < total_pages - 1:
             current_page += 1
         else:
             try:
@@ -571,7 +573,7 @@ def cmd_update_menu():
     print("  1. Backup the current menu from cart (with timestamp)")
     print("  2. Upload the selected menu to replace it")
     confirm = input("\nProceed? (y/n): ").strip().lower()
-    if confirm != 'y':
+    if confirm != "y":
         print("Update cancelled.")
         return
 
@@ -602,7 +604,7 @@ def list_local_music() -> list[Path]:
 
     music_files = []
     for file in MENU_MUSIC_DIR.iterdir():
-        if file.is_file() and file.suffix.lower() == '.mp3':
+        if file.is_file() and file.suffix.lower() == ".mp3":
             music_files.append(file)
     return sorted(music_files, key=lambda x: x.name.lower())
 
@@ -615,7 +617,7 @@ def check_menu_music_exists() -> bool:
 
 def delete_menu_music() -> bool:
     """Delete background music from the cart."""
-    print(f"Removing background music from cart...")
+    print("Removing background music from cart...")
     print(f"  Deleting: {SD_MENU_MUSIC_PATH}")
 
     code, stdout, stderr = run_sc64_command(["sd", "rm", SD_MENU_MUSIC_PATH])
@@ -629,7 +631,7 @@ def delete_menu_music() -> bool:
 
 def upload_menu_music(local_path: Path) -> bool:
     """Upload an MP3 file as background music to the cart."""
-    print(f"Uploading background music to cart...")
+    print("Uploading background music to cart...")
     print(f"  From: {local_path.name}")
     print(f"    To: {SD_MENU_MUSIC_PATH}")
 
@@ -683,14 +685,14 @@ def cmd_menu_music():
     options_map = {}
 
     if music_files:
-        for i, mp3 in enumerate(music_files, 1):
+        for mp3 in music_files:
             print(f"  [{option_num}] Set music to: {mp3.name}")
-            options_map[option_num] = ('set', mp3)
+            options_map[option_num] = ("set", mp3)
             option_num += 1
 
     if has_music:
         print(f"  [{option_num}] Remove background music")
-        options_map[option_num] = ('remove', None)
+        options_map[option_num] = ("remove", None)
         option_num += 1
 
     if not options_map:
@@ -705,7 +707,7 @@ def cmd_menu_music():
 
     action, mp3_file = options_map[choice]
 
-    if action == 'remove':
+    if action == "remove":
         delete_menu_music()
         print("\nBackground music removed!")
     else:
@@ -768,8 +770,8 @@ def cmd_browse_sd():
             print("  (empty directory)")
         else:
             # Separate dirs and files, sort alphabetically
-            dirs = sorted([f for f in files if f['type'] == 'dir'], key=lambda x: x['name'].lower())
-            regular_files = sorted([f for f in files if f['type'] == 'file'], key=lambda x: x['name'].lower())
+            dirs = sorted([f for f in files if f["type"] == "dir"], key=lambda x: x["name"].lower())
+            regular_files = sorted([f for f in files if f["type"] == "file"], key=lambda x: x["name"].lower())
 
             # Display directories first
             idx = 1
@@ -782,9 +784,9 @@ def cmd_browse_sd():
 
             # Then files
             for f in regular_files:
-                size_info = f" ({f['size']})" if f.get('size') and f['size'] != '----' else ""
+                size_info = f" ({f['size']})" if f.get("size") and f["size"] != "----" else ""
                 # Highlight ROM files
-                is_rom = any(f['name'].lower().endswith(ext) for ext in ROM_EXTENSIONS)
+                is_rom = any(f["name"].lower().endswith(ext) for ext in ROM_EXTENSIONS)
                 marker = "[ROM]" if is_rom else "[   ]"
                 print(f"  [{idx:2}] {marker} {f['name']}{size_info}")
                 item_map[idx] = f
@@ -803,17 +805,17 @@ def cmd_browse_sd():
         try:
             choice = input("Enter choice: ").strip().lower()
 
-            if choice == 'b':
+            if choice == "b":
                 print("Returning to main menu...")
                 break
 
-            if choice == '0' and current_path != "/":
+            if choice == "0" and current_path != "/":
                 # Go to parent directory
                 if history:
                     current_path = history.pop()
                 else:
                     # Parse parent from path
-                    parts = current_path.rstrip('/').rsplit('/', 1)
+                    parts = current_path.rstrip("/").rsplit("/", 1)
                     current_path = parts[0] if parts[0] else "/"
                 continue
 
@@ -822,11 +824,11 @@ def cmd_browse_sd():
                 num = int(choice)
                 if num in item_map:
                     item = item_map[num]
-                    if item['type'] == 'dir':
+                    if item["type"] == "dir":
                         # Navigate into directory
                         history.append(current_path)
                         if current_path == "/":
-                            current_path = item['path']
+                            current_path = item["path"]
                         else:
                             current_path = f"{current_path.rstrip('/')}/{item['name']}"
                     else:
@@ -834,7 +836,7 @@ def cmd_browse_sd():
                         print()
                         print(f"  File: {item['name']}")
                         print(f"  Path: {item['path']}")
-                        if item.get('size') and item['size'] != '----':
+                        if item.get("size") and item["size"] != "----":
                             print(f"  Size: {item['size']}")
                         input("\n  Press Enter to continue...")
                 else:
@@ -850,7 +852,7 @@ def cmd_browse_sd():
 def main_menu():
     """Display main menu and handle navigation."""
     while True:
-        print_header("SC64 ROM Manager")
+        print_header("Summer Breeze")
 
         # Quick status check
         connected = check_device_connected()
@@ -868,7 +870,7 @@ def main_menu():
             "Set Menu Background Music",
             "Sync RTC Clock",
             "Browse SD Card",
-            "Exit"
+            "Exit",
         ]
 
         print_menu(options, "Main Menu")
@@ -905,30 +907,30 @@ def main():
     """Main entry point with CLI argument handling."""
     if len(sys.argv) > 1:
         cmd = sys.argv[1].lower()
-        if cmd in ['status', 's']:
+        if cmd in ["status", "s"]:
             cmd_status()
-        elif cmd in ['local', 'l']:
+        elif cmd in ["local", "l"]:
             cmd_list_local()
-        elif cmd in ['cart', 'c']:
+        elif cmd in ["cart", "c"]:
             cmd_list_cart()
-        elif cmd in ['compare', 'diff', 'd']:
+        elif cmd in ["compare", "diff", "d"]:
             cmd_compare()
-        elif cmd in ['upload', 'u']:
+        elif cmd in ["upload", "u"]:
             cmd_upload()
-        elif cmd in ['quick', 'q']:
+        elif cmd in ["quick", "q"]:
             cmd_quick_upload()
-        elif cmd in ['menu', 'm']:
+        elif cmd in ["menu", "m"]:
             cmd_update_menu()
-        elif cmd in ['music', 'bgm']:
+        elif cmd in ["music", "bgm"]:
             cmd_menu_music()
-        elif cmd in ['browse', 'sd']:
+        elif cmd in ["browse", "sd"]:
             cmd_browse_sd()
-        elif cmd in ['rtc', 'clock', 'time']:
+        elif cmd in ["rtc", "clock", "time"]:
             cmd_sync_rtc()
-        elif cmd in ['help', 'h', '-h', '--help']:
-            print("SC64 ROM Manager")
+        elif cmd in ["help", "h", "-h", "--help"]:
+            print("Summer Breeze - A friendly CLI tool for managing SummerCart64")
             print()
-            print("Usage: python sc64manager.py [command]")
+            print("Usage: python summerbreeze.py [command]")
             print()
             print("Commands:")
             print("  status, s   - Show device and SD card status")

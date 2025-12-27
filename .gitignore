@@ -1,7 +1,23 @@
-# Menu background music MP3 files
-menu_music/
+# Virtual environment
+.venv/
 
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Menu versions
+menu_versions/*.n64
+
+# Menu background music MP3 files
+menu_music/*
+!menu_music/.gitkeep
+!menu_music/summerbreeze.mp3
+
+# SC64 deployer binaries (download from SummerCart64 releases)
 sc64deployer.exe
+sc64deployer
+
 sc64menu.n64
 sc64-firmware-backup.bin
 nul
